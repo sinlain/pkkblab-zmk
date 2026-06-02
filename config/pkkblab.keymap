@@ -51,55 +51,6 @@
     combos {
         compatible = "zmk,combos";
 
-        news {
-            bindings = <&kp N>;
-            key-positions = <10 11>;
-        };
-
-        desk {
-            bindings = <&kp LG(D)>;
-            key-positions = <11 12>;
-        };
-
-        create {
-            bindings = <&kp LG(E)>;
-            key-positions = <12 13>;
-        };
-
-        altf4 {
-            bindings = <&kp RA(F4)>;
-            key-positions = <13 14>;
-        };
-
-        guilock {
-            bindings = <&kp LG(L)>;
-            key-positions = <23 24>;
-        };
-
-        backspace {
-            bindings = <&kp BACKSPACE>;
-            key-positions = <8 9>;
-        };
-
-        qw {
-            bindings = <&kp ESC>;
-            key-positions = <0 1>;
-        };
-
-        bootloader {
-            bindings = <&bootloader>;
-            key-positions = <3 2 1 0>;
-        };
-
-        boot {
-            bindings = <&bootloader>;
-            key-positions = <9 8 7 6>;
-        };
-
-        toto {
-            bindings = <&kp LG(TAB)>;
-            key-positions = <1 2>;
-        };
     };
 
     keymap {
@@ -107,46 +58,46 @@
 
         default_layer {
             bindings = <
-&kp Q      &kp W     &kp E         &kp R           &kp T  &kp Y  &kp U      &kp I       &kp O    &kp P
-&kp A      &kp S     &kp D         &kp F           &kp G  &kp H  &kp J      &kp K       &kp L    &kp ENTER
-&kp Z      &kp X     &kp C         &kp V           &kp B  &kp N  &kp M      &kp COMMA   &kp DOT  &kp SLASH
-&kp LCTRL  &kp LGUI  &kp LEFT_ALT  &kp LEFT_SHIFT  &mo 1  &mo 2  &kp SPACE  &kp DELETE  &none    &kp BSPC
+&mo 2              &kp N1  &kp N2  &kp N3  &kp BSPC   &none  &none  &none  &none  &none
+&mo 2              &kp N4  &kp N5  &kp N6  &kp ENTER  &none  &none  &none  &none  &none
+&holdhold 3 RALT   &kp N7  &kp N8  &kp N9  &mo 2      &none  &none  &none  &none  &none
+&none              &none   &kp N0  &kp SPACE &none    &none  &none  &none  &none  &none
             >;
         };
 
         layer_1 {
             bindings = <
-&kp ESC         &kp LA(NUMBER_1)  &kp LA(NUMBER_3)  &kp MINUS           &kp EQUAL   &kp LEFT_ARROW     &kp RIGHT_ARROW  &kp UP_ARROW   &kp DOWN_ARROW  &kp BACKSPACE
-&kp LG(TAB)     &kp LC(N)         &kp LG(D)         &kp LG(E)           &kp LA(F4)  &kp HOME           &kp END          &kp SEMICOLON  &kp APOS        &kp ENTER
-&kp CAPS        &kp LC(A)         &kp LC(C)         &kp LC(V)           &kp ENTER   &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &kp SEMI       &kp APOS        &kp RSHFT
-&kp LEFT_SHIFT  &kp LGUI          &kp LALT          &taptap LSHIFT TAB  &kp SPACE   &kp BACKSPACE      &kp SPACE        &kp LALT       &kp LGUI        &kp DEL
+&none  &none  &none  &none  &kp BSPC   &none  &none  &none  &none  &none
+&none  &none  &none  &none  &kp ENTER  &none  &none  &none  &none  &none
+&none  &none  &none  &none  &none      &none  &none  &none  &none  &none
+&none  &none  &none  &kp SPACE &none   &none  &none  &none  &none  &none
             >;
         };
 
         layer_2 {
             bindings = <
-&kp N1        &kp N2        &kp N3        &kp N4              &kp N5          &kp N6  &kp N7  &kp N8    &kp N9   &kp N0
-&bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3        &bt BT_SEL 4    &kp F1  &kp F2  &kp F3    &kp F4   &kp F5
-&bt BT_CLR    &mkp MB3      &mkp MB2      &msc SCRL_DOWN      &bt BT_CLR_ALL  &kp F6  &kp F7  &kp F8    &kp F9   &kp F10
-&kp LSHFT     &kp LGUI      &kp LALT      &taptap LSHIFT TAB  &mkp MB1        &trans  &trans  &kp LALT  &kp F11  &kp F12
+&kp LS(MINUS)      &kp LS(NUMBER_2)  &kp LS(NUMBER_3)  &kp LS(NUMBER_7)  &kp BSPC   &none  &none  &none  &none  &none
+&kp LS(NUMBER_8)   &kp LS(APOS)      &kp APOS          &kp LS(NUMBER_9)  &kp ENTER  &none  &none  &none  &none  &none
+&kp RALT           &kp LS(EQUAL)     &kp MINUS         &kp LS(NUMBER_5)  &kp LS(SLASH) &none &none &none &none &none
+&none              &none             &kp BSLH          &kp SPACE         &none      &none  &none  &none  &none  &none
             >;
         };
 
         layer_3 {
             bindings = <
-&kp ESC    &kp F1    &kp F2    &kp F3              &kp F4     &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3       &bt BT_SEL 4
-&kp LSHFT  &kp F5    &kp F6    &kp F7              &kp F8     &trans        &trans        &trans        &bt BT_CLR         &out OUT_TOG
-&kp CAPS   &kp F9    &kp F10   &kp F11             &kp F12    &trans        &trans        &trans        &trans             &trans
-&kp LCTRL  &kp LGUI  &kp LALT  &taptap LSHIFT TAB  &kp ENTER  &trans        &trans        &trans        &ext_power EP_OFF  &ext_power EP_ON
+&bt BT_SEL 0       &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3      &bt BT_SEL 4  &none  &none  &none  &none  &none
+&bt BT_CLR         &bt BT_CLR_ALL    &out OUT_TOG      &ext_power EP_OFF &ext_power EP_ON &none &none &none &none &none
+&bootloader        &none             &none             &none             &none        &none  &none  &none  &none  &none
+&none              &none             &none             &none             &none        &none  &none  &none  &none  &none
             >;
         };
 
         layer_4 {
             bindings = <
-&kp N1  &kp N2  &kp N3  &kp N4  &kp N5  &kp N6  &kp N7  &kp N8  &kp N9  &kp N0
-&kp Q   &kp W   &kp E   &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
+&none  &none  &none  &none  &none  &none  &none  &none  &none  &none
+&none  &none  &none  &none  &none  &none  &none  &none  &none  &none
+&none  &none  &none  &none  &none  &none  &none  &none  &none  &none
+&none  &none  &none  &none  &none  &none  &none  &none  &none  &none
             >;
         };
     };
