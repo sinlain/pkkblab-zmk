@@ -1,0 +1,9 @@
+/ {
+    behaviors {
+        cji: behavior_cheonjiin {
+            compatible = "sinlain,behavior-cheonjiin";
+            label = "CHEONJIIN";
+            #binding-cells = <1>;
+        };
+    };
+};
