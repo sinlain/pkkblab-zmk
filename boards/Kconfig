@@ -1,0 +1,8 @@
+menu "Sinlain Cheonjiin Behavior"
+
+config ZMK_BEHAVIOR_CHEONJIIN
+    bool "Enable Cheonjiin input behavior"
+    default y
+    depends on ZMK
+
+endmenu
