@@ -1,0 +1,5 @@
+description: Cheonjiin Korean input behavior
+
+compatible: "sinlain,behavior-cheonjiin"
+
+include: one_param.yaml
