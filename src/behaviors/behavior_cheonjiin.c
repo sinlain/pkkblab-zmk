@@ -1,9 +1,12 @@
 /*
  * Cheonjiin Korean input behavior for ZMK
  *
- * MVP behavior:
- * - Converts Cheonjiin key tokens into 2-beolsik Korean IME key strokes.
- * - Host OS must be in Korean 2-beolsik input mode.
+ * Behavior:
+ * - Immediate input on first tap.
+ * - If the same consonant key is tapped again within CJI_REPEAT_TERM_MS:
+ *   Backspace previous character, then replace with next candidate.
+ *
+ * Host OS must be in Korean 2-beolsik input mode.
  */
 
 #define DT_DRV_COMPAT sinlain_behavior_cheonjiin
@@ -25,6 +28,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
 #define TAP_DELAY_MS 8
+#define CJI_REPEAT_TERM_MS 800
 
 enum cji_kind {
     CJI_KIND_NONE = 0,
@@ -37,6 +41,7 @@ struct cji_state {
     uint32_t last_token;
     uint8_t repeat_count;
     enum cji_kind last_kind;
+    int64_t last_tap_time;
     bool pending_dot;
 };
 
@@ -44,6 +49,7 @@ static struct cji_state state = {
     .last_token = 0,
     .repeat_count = 0,
     .last_kind = CJI_KIND_NONE,
+    .last_tap_time = 0,
     .pending_dot = false,
 };
 
@@ -127,11 +133,26 @@ static void reset_state(void) {
     state.last_token = 0;
     state.repeat_count = 0;
     state.last_kind = CJI_KIND_NONE;
+    state.last_tap_time = 0;
     state.pending_dot = false;
 }
 
+static bool within_repeat_term(void) {
+    int64_t now = k_uptime_get();
+
+    if (state.last_tap_time == 0) {
+        state.last_tap_time = now;
+        return false;
+    }
+
+    bool within = (now - state.last_tap_time) <= CJI_REPEAT_TERM_MS;
+    state.last_tap_time = now;
+
+    return within;
+}
+
 /*
- * 2-beolsik Korean IME mapping:
+ * 2-beolsik mapping:
  *
  * ㄱ r, ㄲ Shift+r, ㅋ z
  * ㄴ s, ㄹ f
@@ -210,6 +231,24 @@ static int emit_consonant(uint32_t token, uint8_t repeat_count) {
     }
 }
 
+static uint8_t max_repeat_count(uint32_t token) {
+    switch (token) {
+    case CJI_G:
+    case CJI_D:
+    case CJI_B:
+    case CJI_S:
+    case CJI_J:
+        return 2;
+
+    case CJI_N:
+    case CJI_O:
+        return 1;
+
+    default:
+        return 0;
+    }
+}
+
 static bool is_consonant_token(uint32_t token) {
     return token == CJI_G || token == CJI_N || token == CJI_D || token == CJI_B ||
            token == CJI_S || token == CJI_J || token == CJI_O;
@@ -217,20 +256,29 @@ static bool is_consonant_token(uint32_t token) {
 
 static int handle_consonant(uint32_t token) {
     int err;
+    bool repeat = false;
 
-    if (state.last_token == token && state.last_kind == CJI_KIND_CONSONANT) {
-        state.repeat_count++;
+    if (state.last_token == token &&
+        state.last_kind == CJI_KIND_CONSONANT &&
+        within_repeat_term()) {
+        repeat = true;
+    } else {
+        state.repeat_count = 0;
+    }
 
-        if (state.repeat_count > 2) {
+    if (repeat) {
+        uint8_t max_count = max_repeat_count(token);
+
+        if (state.repeat_count >= max_count) {
             state.repeat_count = 0;
+        } else {
+            state.repeat_count++;
         }
 
         err = tap_backspace();
         if (err < 0) {
             return err;
         }
-    } else {
-        state.repeat_count = 0;
     }
 
     err = emit_consonant(token, state.repeat_count);
@@ -241,6 +289,10 @@ static int handle_consonant(uint32_t token) {
     state.last_token = token;
     state.last_kind = CJI_KIND_CONSONANT;
     state.pending_dot = false;
+
+    if (!repeat) {
+        state.last_tap_time = k_uptime_get();
+    }
 
     return 0;
 }
@@ -263,6 +315,8 @@ static int handle_vowel_i(void) {
     state.last_token = CJI_I;
     state.last_kind = CJI_KIND_VOWEL;
     state.pending_dot = false;
+    state.repeat_count = 0;
+    state.last_tap_time = k_uptime_get();
 
     return 0;
 }
@@ -285,6 +339,8 @@ static int handle_vowel_eu(void) {
     state.last_token = CJI_EU;
     state.last_kind = CJI_KIND_VOWEL;
     state.pending_dot = false;
+    state.repeat_count = 0;
+    state.last_tap_time = k_uptime_get();
 
     return 0;
 }
@@ -324,6 +380,7 @@ static int handle_vowel_dot(void) {
     state.last_kind = CJI_KIND_DOT;
     state.pending_dot = true;
     state.repeat_count = 0;
+    state.last_tap_time = k_uptime_get();
 
     return 0;
 }
@@ -369,7 +426,6 @@ static int on_cji_binding_pressed(struct zmk_behavior_binding *binding,
     ARG_UNUSED(event);
 
     uint32_t token = binding->param1;
-
     return handle_token(token);
 }
 
