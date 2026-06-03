@@ -87,9 +87,14 @@ static size_t action_tail;
 static size_t action_count;
 
 K_MUTEX_DEFINE(action_mutex);
+K_SEM_DEFINE(action_sem, 0, CJI_ACTION_QUEUE_SIZE);
 
-static void cji_work_handler(struct k_work *work);
-K_WORK_DEFINE(cji_work, cji_work_handler);
+#define CJI_THREAD_STACK_SIZE 1536
+#define CJI_THREAD_PRIORITY 5
+
+K_THREAD_STACK_DEFINE(cji_thread_stack, CJI_THREAD_STACK_SIZE);
+static struct k_thread cji_thread_data;
+static bool cji_thread_started;
 
 static int send_report(void) {
     return zmk_endpoints_send_report(HID_USAGE_KEY);
@@ -180,7 +185,7 @@ static int enqueue_action(enum cji_action_type type, uint32_t keycode) {
     action_count++;
 
     k_mutex_unlock(&action_mutex);
-    k_work_submit(&cji_work);
+    k_sem_give(&action_sem);
 
     return 0;
 }
@@ -203,20 +208,26 @@ static bool dequeue_action(struct cji_action *action) {
     return true;
 }
 
-static void cji_work_handler(struct k_work *work) {
-    ARG_UNUSED(work);
+static void cji_output_thread(void *p1, void *p2, void *p3) {
+    ARG_UNUSED(p1);
+    ARG_UNUSED(p2);
+    ARG_UNUSED(p3);
 
     struct cji_action action;
 
-    while (dequeue_action(&action)) {
-        switch (action.type) {
-        case CJI_ACTION_TAP:
-            tap_key_now(action.keycode);
-            break;
+    while (true) {
+        k_sem_take(&action_sem, K_FOREVER);
 
-        case CJI_ACTION_SHIFT_TAP:
-            tap_shifted_key_now(action.keycode);
-            break;
+        while (dequeue_action(&action)) {
+            switch (action.type) {
+            case CJI_ACTION_TAP:
+                tap_key_now(action.keycode);
+                break;
+
+            case CJI_ACTION_SHIFT_TAP:
+                tap_shifted_key_now(action.keycode);
+                break;
+            }
         }
     }
 }
@@ -708,6 +719,15 @@ static const struct behavior_driver_api behavior_cheonjiin_driver_api = {
 
 static int behavior_cheonjiin_init(const struct device *dev) {
     ARG_UNUSED(dev);
+
+    if (!cji_thread_started) {
+        k_thread_create(&cji_thread_data, cji_thread_stack,
+                        K_THREAD_STACK_SIZEOF(cji_thread_stack),
+                        cji_output_thread, NULL, NULL, NULL,
+                        K_PRIO_PREEMPT(CJI_THREAD_PRIORITY), 0, K_NO_WAIT);
+        cji_thread_started = true;
+    }
+
     return 0;
 }
 
