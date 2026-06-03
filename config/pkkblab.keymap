@@ -75,10 +75,10 @@
          */
         default_layer {
             bindings = <
-&kp LS(MINUS)      &kp L      &kp K      &kp M      &kp BSPC   &none  &none  &none  &none  &none
-&kp LS(NUMBER_8)   &kp R      &kp S      &kp E      &kp ENTER  &none  &none  &none  &none  &none
-&to 1              &kp Q      &kp T      &kp W      &kp COMMA  &none  &none  &none  &none  &none
-&none              &none      &kp D      &kp SPACE  &none      &none  &none  &none  &none  &none
+&kp LS(MINUS)      &cji CJI_I  &cji CJI_DOT  &cji CJI_EU     &cji CJI_BSPC   &none  &none  &none  &none  &none
+&kp LS(NUMBER_8)   &cji CJI_G  &cji CJI_N    &cji CJI_D      &cji CJI_ENTER  &none  &none  &none  &none  &none
+&to 1              &cji CJI_B  &cji CJI_S    &cji CJI_J      &kp COMMA       &none  &none  &none  &none  &none
+&none              &none       &cji CJI_O    &cji CJI_SPACE  &none           &none  &none  &none  &none  &none
             >;
         };
 
