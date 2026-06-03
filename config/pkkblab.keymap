@@ -58,49 +58,32 @@
         compatible = "zmk,keymap";
 
         /*
-         * Layer 0: 한글 / 천지인
+         * Layer 0: 한글 디버그
+         * OS 입력기를 반드시 한국어 두벌식으로 둔 상태에서 테스트합니다.
          *
-         * 1        2        3          4          5
-         * _        ㅣ       ㆍ         ㅡ         Backspace
+         * 1  2   3   4   5
+         * _  ㅣ  ㅏ  ㅡ  Backspace
          *
-         * 6        7        8          9          10
-         * *        ㄱㅋㄲ    ㄴㄹ       ㄷㅌㄸ      Enter
+         * 6  7   8   9   10
+         * *  ㄱ  ㄴ  ㄷ  Enter
          *
-         * 11       12       13         14         15
-         * 전환     ㅂㅍㅃ    ㅅㅎㅆ     ㅈㅊㅉ      ,
+         * 11 12  13  14  15
+         * 전환 ㅂ  ㅅ  ㅈ  ,
          *
-         * 16       17
-         * ㅇㅁ      Space
-         *
-         * 주의:
-         * 1/6/15번은 기호 모드 전환키가 아니라 일반 입력키입니다.
-         * 현재는 각 묶음의 첫 글자만 임시 입력합니다.
+         * 16 17
+         * ㅇ  Space
          */
         default_layer {
             bindings = <
-&kp LS(MINUS)      &cji CJI_I  &cji CJI_DOT  &cji CJI_EU     &cji CJI_BSPC   &none  &none  &none  &none  &none
-&kp LS(NUMBER_8)   &cji CJI_G  &cji CJI_N    &cji CJI_D      &cji CJI_ENTER  &none  &none  &none  &none  &none
-&to 1              &cji CJI_B  &cji CJI_S    &cji CJI_J      &kp COMMA       &none  &none  &none  &none  &none
-&none              &none       &cji CJI_O    &cji CJI_SPACE  &none           &none  &none  &none  &none  &none
+&kp LS(MINUS)      &kp L      &kp K      &kp M      &kp BSPC   &none  &none  &none  &none  &none
+&kp LS(NUMBER_8)   &kp R      &kp S      &kp E      &kp ENTER  &none  &none  &none  &none  &none
+&to 1              &kp Q      &kp T      &kp W      &kp COMMA  &none  &none  &none  &none  &none
+&none              &none      &kp D      &kp SPACE  &none      &none  &none  &none  &none  &none
             >;
         };
 
         /*
-         * Layer 1: 영문
-         *
-         * 1        2        3        4        5
-         * _        @        a        d        Backspace
-         *
-         * 6        7        8        9        10
-         * *        g        j        m        Enter
-         *
-         * 11       12       13       14       15
-         * 전환     p        y        w        ,
-         *
-         * 16       17
-         * Caps     Space
-         *
-         * abc/def/ghi 같은 반복 입력은 다음 단계에서 별도 behavior로 구현해야 합니다.
+         * Layer 1: 영문 디버그
          */
         layer_1 {
             bindings = <
@@ -112,19 +95,7 @@
         };
 
         /*
-         * Layer 2: 숫자
-         *
-         * 1        2        3        4        5
-         * _        1        2        3        Backspace
-         *
-         * 6        7        8        9        10
-         * *        4        5        6        Enter
-         *
-         * 11       12       13       14       15
-         * 전환     7        8        9        +
-         *
-         * 16       17
-         * 0        Space
+         * Layer 2: 숫자 디버그
          */
         layer_2 {
             bindings = <
@@ -136,34 +107,18 @@
         };
 
         /*
-         * Layer 3: 기호 / 마우스
-         *
-         * 1        2              3              4              5
-         * _        @              Mouse Up       Mouse Toggle   Backspace
-         *
-         * 6        7              8              9              10
-         * *        Mouse Left     Left Click     Mouse Right    Enter
-         *
-         * 11       12             13             14             15
-         * 전환     Bluetooth      Mouse Down     Right Click    +
-         *
-         * 16       17
-         * Boot     Space
-         *
-         * 11번만 한글 모드로 복귀합니다.
+         * Layer 3: 기호 디버그
+         * 11번 키만 한글 Layer 0으로 복귀합니다.
          */
         layer_3 {
             bindings = <
-&kp LS(MINUS)      &kp AT          &mmv MOVE_UP    &none            &kp BSPC   &none  &none  &none  &none  &none
-&kp LS(NUMBER_8)   &mmv MOVE_LEFT  &mkp MB1        &mmv MOVE_RIGHT  &kp ENTER  &none  &none  &none  &none  &none
-&to 0              &bt BT_CLR      &mmv MOVE_DOWN  &mkp MB2         &kp PLUS   &none  &none  &none  &none  &none
-&none              &none           &bootloader     &kp SPACE        &none      &none  &none  &none  &none  &none
+&kp LS(MINUS)      &kp AT          &kp LS(NUMBER_3)  &none            &kp BSPC   &none  &none  &none  &none  &none
+&kp LS(NUMBER_8)   &kp LS(APOS)    &kp LS(NUMBER_9)  &kp LS(NUMBER_0) &kp ENTER  &none  &none  &none  &none  &none
+&to 0              &kp PLUS        &kp MINUS         &kp LS(NUMBER_5) &kp COMMA  &none  &none  &none  &none  &none
+&none              &none           &kp N0            &kp SPACE        &none      &none  &none  &none  &none  &none
             >;
         };
 
-        /*
-         * Layer 4: 시스템 예비
-         */
         layer_4 {
             bindings = <
 &bt BT_SEL 0       &bt BT_SEL 1      &bt BT_SEL 2      &bt BT_SEL 3      &bt BT_SEL 4      &none  &none  &none  &none  &none
