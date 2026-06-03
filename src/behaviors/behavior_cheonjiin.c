@@ -15,7 +15,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include <zmk/behavior.h>
+#include <drivers/behavior.h>
+
 #include <zmk/endpoints.h>
 #include <zmk/hid.h>
 
@@ -54,7 +55,7 @@ static struct cji_state state = {
 };
 
 static int send_report(void) {
-    return zmk_endpoint_send_report(HID_USAGE_KEY);
+    return zmk_endpoints_send_report(HID_USAGE_KEY);
 }
 
 static int press_key(uint32_t keycode) {
