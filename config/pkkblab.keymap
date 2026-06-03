@@ -107,10 +107,10 @@
 
         default_layer {
             bindings = <
-&kp Q      &kp W     &kp E         &kp R           &kp T  &kp Y  &kp U      &kp I       &kp O    &kp P
-&kp A      &kp S     &kp D         &kp F           &kp G  &kp H  &kp J      &kp K       &kp L    &kp ENTER
-&kp Z      &kp X     &kp C         &kp V           &kp B  &kp N  &kp M      &kp COMMA   &kp DOT  &kp SLASH
-&kp LCTRL  &kp LGUI  &kp LEFT_ALT  &kp LEFT_SHIFT  &mo 1  &mo 2  &kp SPACE  &kp DELETE  &none    &kp BSPC
+&to 3        &cji CJI_I  &cji CJI_DOT  &cji CJI_EU     &cji CJI_BSPC   &none  &none  &none  &none  &none
+&to 3        &cji CJI_G  &cji CJI_N    &cji CJI_D      &cji CJI_ENTER  &none  &none  &none  &none  &none
+&to 1        &cji CJI_B  &cji CJI_S    &cji CJI_J      &to 3           &none  &none  &none  &none  &none
+&none        &none       &cji CJI_O    &cji CJI_SPACE  &none           &none  &none  &none  &none  &none
             >;
         };
 
