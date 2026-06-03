@@ -29,7 +29,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
 #define TAP_DELAY_MS 8
-#define CJI_REPEAT_TERM_MS 800
+#define CJI_REPEAT_TERM_MS 1800
 
 enum cji_kind {
     CJI_KIND_NONE = 0,
@@ -138,18 +138,18 @@ static void reset_state(void) {
     state.pending_dot = false;
 }
 
-static bool within_repeat_term(void) {
+static bool is_within_term(void) {
     int64_t now = k_uptime_get();
 
     if (state.last_tap_time == 0) {
-        state.last_tap_time = now;
         return false;
     }
 
-    bool within = (now - state.last_tap_time) <= CJI_REPEAT_TERM_MS;
-    state.last_tap_time = now;
+    return (now - state.last_tap_time) <= CJI_REPEAT_TERM_MS;
+}
 
-    return within;
+static void stamp_tap_time(void) {
+    state.last_tap_time = k_uptime_get();
 }
 
 /*
@@ -261,10 +261,8 @@ static int handle_consonant(uint32_t token) {
 
     if (state.last_token == token &&
         state.last_kind == CJI_KIND_CONSONANT &&
-        within_repeat_term()) {
+        is_within_term()) {
         repeat = true;
-    } else {
-        state.repeat_count = 0;
     }
 
     if (repeat) {
@@ -280,6 +278,8 @@ static int handle_consonant(uint32_t token) {
         if (err < 0) {
             return err;
         }
+    } else {
+        state.repeat_count = 0;
     }
 
     err = emit_consonant(token, state.repeat_count);
@@ -290,10 +290,7 @@ static int handle_consonant(uint32_t token) {
     state.last_token = token;
     state.last_kind = CJI_KIND_CONSONANT;
     state.pending_dot = false;
-
-    if (!repeat) {
-        state.last_tap_time = k_uptime_get();
-    }
+    stamp_tap_time();
 
     return 0;
 }
@@ -301,7 +298,9 @@ static int handle_consonant(uint32_t token) {
 static int handle_vowel_i(void) {
     int err;
 
-    if (state.pending_dot && state.last_token == CJI_DOT) {
+    if (state.pending_dot &&
+        state.last_token == CJI_DOT &&
+        is_within_term()) {
         /* ㆍ + ㅣ = ㅓ */
         err = tap_key(J);
         reset_state();
@@ -317,7 +316,7 @@ static int handle_vowel_i(void) {
     state.last_kind = CJI_KIND_VOWEL;
     state.pending_dot = false;
     state.repeat_count = 0;
-    state.last_tap_time = k_uptime_get();
+    stamp_tap_time();
 
     return 0;
 }
@@ -325,7 +324,9 @@ static int handle_vowel_i(void) {
 static int handle_vowel_eu(void) {
     int err;
 
-    if (state.pending_dot && state.last_token == CJI_DOT) {
+    if (state.pending_dot &&
+        state.last_token == CJI_DOT &&
+        is_within_term()) {
         /* ㆍ + ㅡ = ㅜ */
         err = tap_key(N);
         reset_state();
@@ -341,7 +342,7 @@ static int handle_vowel_eu(void) {
     state.last_kind = CJI_KIND_VOWEL;
     state.pending_dot = false;
     state.repeat_count = 0;
-    state.last_tap_time = k_uptime_get();
+    stamp_tap_time();
 
     return 0;
 }
@@ -349,7 +350,9 @@ static int handle_vowel_eu(void) {
 static int handle_vowel_dot(void) {
     int err;
 
-    if (state.last_token == CJI_I && state.last_kind == CJI_KIND_VOWEL) {
+    if (state.last_token == CJI_I &&
+        state.last_kind == CJI_KIND_VOWEL &&
+        is_within_term()) {
         /* ㅣ + ㆍ = ㅏ */
         err = tap_backspace();
         if (err < 0) {
@@ -361,7 +364,9 @@ static int handle_vowel_dot(void) {
         return err;
     }
 
-    if (state.last_token == CJI_EU && state.last_kind == CJI_KIND_VOWEL) {
+    if (state.last_token == CJI_EU &&
+        state.last_kind == CJI_KIND_VOWEL &&
+        is_within_term()) {
         /* ㅡ + ㆍ = ㅗ */
         err = tap_backspace();
         if (err < 0) {
@@ -375,13 +380,13 @@ static int handle_vowel_dot(void) {
 
     /*
      * Standalone ㆍ has no direct 2-beolsik key.
-     * Keep it pending until the next vowel key.
+     * Keep it pending only for the repeat/composition term.
      */
     state.last_token = CJI_DOT;
     state.last_kind = CJI_KIND_DOT;
     state.pending_dot = true;
     state.repeat_count = 0;
-    state.last_tap_time = k_uptime_get();
+    stamp_tap_time();
 
     return 0;
 }
