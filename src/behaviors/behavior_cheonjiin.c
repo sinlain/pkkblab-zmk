@@ -5,6 +5,8 @@
  * - Immediate input on first tap.
  * - If the same consonant key is tapped again within CJI_REPEAT_TERM_MS:
  *   Backspace previous character, then replace with next candidate.
+ * - HID output is queued to a work item so the behavior callback does not sleep
+ *   or send multi-step HID reports directly inside the key press handler.
  *
  * Host OS must be in Korean 2-beolsik input mode.
  */
@@ -28,8 +30,9 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
-#define TAP_DELAY_MS 8
+#define TAP_DELAY_MS 20
 #define CJI_REPEAT_TERM_MS 1800
+#define CJI_ACTION_QUEUE_SIZE 64
 
 enum cji_kind {
     CJI_KIND_NONE = 0,
@@ -54,11 +57,31 @@ static struct cji_state state = {
     .pending_dot = false,
 };
 
+enum cji_action_type {
+    CJI_ACTION_TAP = 0,
+    CJI_ACTION_SHIFT_TAP,
+};
+
+struct cji_action {
+    enum cji_action_type type;
+    uint32_t keycode;
+};
+
+static struct cji_action action_queue[CJI_ACTION_QUEUE_SIZE];
+static size_t action_head;
+static size_t action_tail;
+static size_t action_count;
+
+K_MUTEX_DEFINE(action_mutex);
+
+static void cji_work_handler(struct k_work *work);
+K_WORK_DEFINE(cji_work, cji_work_handler);
+
 static int send_report(void) {
     return zmk_endpoints_send_report(HID_USAGE_KEY);
 }
 
-static int press_key(uint32_t keycode) {
+static int press_key_now(uint32_t keycode) {
     int err = zmk_hid_press(ZMK_HID_USAGE(HID_USAGE_KEY, keycode));
     if (err < 0) {
         return err;
@@ -67,7 +90,7 @@ static int press_key(uint32_t keycode) {
     return send_report();
 }
 
-static int release_key(uint32_t keycode) {
+static int release_key_now(uint32_t keycode) {
     int err = zmk_hid_release(ZMK_HID_USAGE(HID_USAGE_KEY, keycode));
     if (err < 0) {
         return err;
@@ -76,15 +99,15 @@ static int release_key(uint32_t keycode) {
     return send_report();
 }
 
-static int tap_key(uint32_t keycode) {
-    int err = press_key(keycode);
+static int tap_key_now(uint32_t keycode) {
+    int err = press_key_now(keycode);
     if (err < 0) {
         return err;
     }
 
     k_sleep(K_MSEC(TAP_DELAY_MS));
 
-    err = release_key(keycode);
+    err = release_key_now(keycode);
     if (err < 0) {
         return err;
     }
@@ -93,37 +116,103 @@ static int tap_key(uint32_t keycode) {
     return 0;
 }
 
-static int tap_shifted_key(uint32_t keycode) {
-    int err = press_key(LEFT_SHIFT);
+static int tap_shifted_key_now(uint32_t keycode) {
+    int err = press_key_now(LEFT_SHIFT);
     if (err < 0) {
         return err;
     }
 
     k_sleep(K_MSEC(TAP_DELAY_MS));
 
-    err = press_key(keycode);
+    err = press_key_now(keycode);
     if (err < 0) {
-        release_key(LEFT_SHIFT);
+        release_key_now(LEFT_SHIFT);
         return err;
     }
 
     k_sleep(K_MSEC(TAP_DELAY_MS));
 
-    err = release_key(keycode);
+    err = release_key_now(keycode);
     if (err < 0) {
-        release_key(LEFT_SHIFT);
+        release_key_now(LEFT_SHIFT);
         return err;
     }
 
     k_sleep(K_MSEC(TAP_DELAY_MS));
 
-    err = release_key(LEFT_SHIFT);
+    err = release_key_now(LEFT_SHIFT);
     if (err < 0) {
         return err;
     }
 
     k_sleep(K_MSEC(TAP_DELAY_MS));
     return 0;
+}
+
+static int enqueue_action(enum cji_action_type type, uint32_t keycode) {
+    int err = k_mutex_lock(&action_mutex, K_MSEC(10));
+    if (err < 0) {
+        return err;
+    }
+
+    if (action_count >= CJI_ACTION_QUEUE_SIZE) {
+        k_mutex_unlock(&action_mutex);
+        return -ENOMEM;
+    }
+
+    action_queue[action_tail].type = type;
+    action_queue[action_tail].keycode = keycode;
+    action_tail = (action_tail + 1) % CJI_ACTION_QUEUE_SIZE;
+    action_count++;
+
+    k_mutex_unlock(&action_mutex);
+    k_work_submit(&cji_work);
+
+    return 0;
+}
+
+static bool dequeue_action(struct cji_action *action) {
+    if (k_mutex_lock(&action_mutex, K_MSEC(10)) < 0) {
+        return false;
+    }
+
+    if (action_count == 0) {
+        k_mutex_unlock(&action_mutex);
+        return false;
+    }
+
+    *action = action_queue[action_head];
+    action_head = (action_head + 1) % CJI_ACTION_QUEUE_SIZE;
+    action_count--;
+
+    k_mutex_unlock(&action_mutex);
+    return true;
+}
+
+static void cji_work_handler(struct k_work *work) {
+    ARG_UNUSED(work);
+
+    struct cji_action action;
+
+    while (dequeue_action(&action)) {
+        switch (action.type) {
+        case CJI_ACTION_TAP:
+            tap_key_now(action.keycode);
+            break;
+
+        case CJI_ACTION_SHIFT_TAP:
+            tap_shifted_key_now(action.keycode);
+            break;
+        }
+    }
+}
+
+static int tap_key(uint32_t keycode) {
+    return enqueue_action(CJI_ACTION_TAP, keycode);
+}
+
+static int tap_shifted_key(uint32_t keycode) {
+    return enqueue_action(CJI_ACTION_SHIFT_TAP, keycode);
 }
 
 static int tap_backspace(void) {
@@ -151,20 +240,6 @@ static bool is_within_term(void) {
 static void stamp_tap_time(void) {
     state.last_tap_time = k_uptime_get();
 }
-
-/*
- * 2-beolsik mapping:
- *
- * ㄱ r, ㄲ Shift+r, ㅋ z
- * ㄴ s, ㄹ f
- * ㄷ e, ㄸ Shift+e, ㅌ x
- * ㅂ q, ㅃ Shift+q, ㅍ v
- * ㅅ t, ㅆ Shift+t, ㅎ g
- * ㅈ w, ㅉ Shift+w, ㅊ c
- * ㅇ d, ㅁ a
- *
- * ㅏ k, ㅓ j, ㅗ h, ㅜ n, ㅡ m, ㅣ l
- */
 
 static int emit_consonant(uint32_t token, uint8_t repeat_count) {
     switch (token) {
@@ -378,10 +453,7 @@ static int handle_vowel_dot(void) {
         return err;
     }
 
-    /*
-     * Standalone ㆍ has no direct 2-beolsik key.
-     * Keep it pending only for the repeat/composition term.
-     */
+    /* Standalone ㆍ has no direct 2-beolsik key. */
     state.last_token = CJI_DOT;
     state.last_kind = CJI_KIND_DOT;
     state.pending_dot = true;
