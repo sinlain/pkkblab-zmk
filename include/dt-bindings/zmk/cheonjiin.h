@@ -46,7 +46,7 @@
 #define CJI_ENG_WXYZ  57  /* w x y z */
 
 /* Symbol / operator multi-tap tokens */
-#define CJI_SYM_1     70  /* _ ^ # $ / */
+#define CJI_SYM_1     70  /* _ @ # $ / */
 #define CJI_SYM_2     71  /* * " ' ( ) */
 #define CJI_SYM_3     72  /* , ? ! */
 #define CJI_NUM_OPS   73  /* + - * % */
