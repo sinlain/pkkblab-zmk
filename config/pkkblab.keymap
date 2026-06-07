@@ -87,10 +87,10 @@
          */
         layer_1 {
             bindings = <
-&kp LS(MINUS)      &kp AT     &kp A      &kp D      &kp BSPC   &none  &none  &none  &none  &none
-&kp LS(NUMBER_8)   &kp G      &kp J      &kp M      &kp ENTER  &none  &none  &none  &none  &none
-&to 2              &kp P      &kp Y      &kp W      &kp COMMA  &none  &none  &none  &none  &none
-&none              &none      &kp CAPS   &kp SPACE  &none      &none  &none  &none  &none  &none
+&cji CJI_SYM_1   &kp LS(NUMBER_2)  &cji CJI_ENG_ABC   &cji CJI_ENG_DEF   &cji CJI_BSPC   &none  &none  &none  &none  &none
+&cji CJI_SYM_2   &cji CJI_ENG_GHI  &cji CJI_ENG_JKL   &cji CJI_ENG_MNO   &cji CJI_ENTER  &none  &none  &none  &none  &none
+&to 2            &cji CJI_ENG_PQRS &cji CJI_ENG_TUV   &cji CJI_ENG_WXYZ  &cji CJI_SYM_3  &none  &none  &none  &none  &none
+&none            &none             &kp CAPS           &cji CJI_SPACE     &none           &none  &none  &none  &none  &none
             >;
         };
 
@@ -99,10 +99,10 @@
          */
         layer_2 {
             bindings = <
-&kp LS(MINUS)      &kp N1     &kp N2     &kp N3     &kp BSPC   &none  &none  &none  &none  &none
-&kp LS(NUMBER_8)   &kp N4     &kp N5     &kp N6     &kp ENTER  &none  &none  &none  &none  &none
-&to 3              &kp N7     &kp N8     &kp N9     &kp PLUS   &none  &none  &none  &none  &none
-&none              &none      &kp N0     &kp SPACE  &none      &none  &none  &none  &none  &none
+&cji CJI_SYM_1   &kp N1  &kp N2  &kp N3        &cji CJI_BSPC     &none  &none  &none  &none  &none
+&cji CJI_SYM_2   &kp N4  &kp N5  &kp N6        &cji CJI_ENTER    &none  &none  &none  &none  &none
+&to 3            &kp N7  &kp N8  &kp N9        &cji CJI_NUM_OPS  &none  &none  &none  &none  &none
+&none            &none   &kp N0  &cji CJI_SPACE &none            &none  &none  &none  &none  &none
             >;
         };
 
@@ -112,10 +112,10 @@
          */
         layer_3 {
             bindings = <
-&kp LS(MINUS)      &kp AT          &kp LS(NUMBER_3)  &none            &kp BSPC   &none  &none  &none  &none  &none
-&kp LS(NUMBER_8)   &kp LS(APOS)    &kp LS(NUMBER_9)  &kp LS(NUMBER_0) &kp ENTER  &none  &none  &none  &none  &none
-&to 0              &kp PLUS        &kp MINUS         &kp LS(NUMBER_5) &kp COMMA  &none  &none  &none  &none  &none
-&none              &none           &kp N0            &kp SPACE        &none      &none  &none  &none  &none  &none
+&cji CJI_SYM_1   &kp LS(NUMBER_2)  &kp LS(NUMBER_3)  &kp SLASH          &cji CJI_BSPC   &none  &none  &none  &none  &none
+&cji CJI_SYM_2   &kp LS(APOS)      &kp LS(NUMBER_9)  &kp LS(NUMBER_0)   &cji CJI_ENTER  &none  &none  &none  &none  &none
+&to 0            &kp PLUS          &kp MINUS         &kp LS(NUMBER_5)   &cji CJI_SYM_3  &none  &none  &none  &none  &none
+&none            &none             &kp N0            &cji CJI_SPACE     &none           &none  &none  &none  &none  &none
             >;
         };
 
