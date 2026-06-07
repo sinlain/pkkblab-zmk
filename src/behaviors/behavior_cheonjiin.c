@@ -115,6 +115,39 @@ static struct cji_state state = {
     .emitted_vowel_out_len = 0,
 };
 
+struct cji_multitap_state {
+    uint32_t last_token;
+    uint8_t repeat_count;
+    int64_t last_tap_time;
+};
+
+static struct cji_multitap_state mt_state = {
+    .last_token = 0,
+    .repeat_count = 0,
+    .last_tap_time = 0,
+};
+
+static void reset_multitap_state(void) {
+    mt_state.last_token = 0;
+    mt_state.repeat_count = 0;
+    mt_state.last_tap_time = 0;
+}
+
+static bool multitap_is_within_term(uint32_t token) {
+    int64_t now = k_uptime_get();
+
+    if (mt_state.last_token != token || mt_state.last_tap_time == 0) {
+        return false;
+    }
+
+    return (now - mt_state.last_tap_time) <= CJI_REPEAT_TERM_MS;
+}
+
+static void stamp_multitap_time(uint32_t token) {
+    mt_state.last_token = token;
+    mt_state.last_tap_time = k_uptime_get();
+}
+
 enum cji_action_type {
     CJI_ACTION_TAP = 0,
     CJI_ACTION_SHIFT_TAP,
@@ -286,6 +319,7 @@ static void reset_state(void) {
     state.vowel_len = 0;
     state.emitted_vowel = false;
     state.emitted_vowel_out_len = 0;
+    reset_multitap_state();
 }
 
 static bool is_within_term(void) {
@@ -422,6 +456,8 @@ static int handle_consonant(uint32_t token) {
     if (err < 0) {
         return err;
     }
+
+    reset_multitap_state();
 
     state.last_token = token;
     state.last_kind = CJI_KIND_CONSONANT;
@@ -611,6 +647,7 @@ static int start_new_vowel_sequence(uint32_t token) {
     const struct cji_vowel_map *map;
     int err;
 
+    reset_multitap_state();
     reset_vowel_sequence();
     append_vowel_token(token);
 
@@ -641,6 +678,8 @@ static int start_new_vowel_sequence(uint32_t token) {
 static int handle_vowel_token(uint32_t token) {
     int err;
     const struct cji_vowel_map *map;
+
+    reset_multitap_state();
 
     bool continuing =
         (state.last_kind == CJI_KIND_VOWEL || state.last_kind == CJI_KIND_DOT) &&
@@ -810,31 +849,41 @@ static int emit_multitap_key(const struct cji_multitap_key *key) {
 static int handle_multitap(uint32_t token) {
     const struct cji_multitap_map *map = find_multitap_map(token);
     int err;
+    bool repeat;
 
     if (map == NULL || map->len == 0) {
         return -ENOTSUP;
     }
 
-    if (state.last_token == token &&
-        state.last_kind == CJI_KIND_MULTITAP &&
-        is_within_term()) {
-        state.repeat_count = (state.repeat_count + 1) % map->len;
+    /*
+     * English/symbol multi-tap must not depend on the shared Cheonjiin
+     * vowel/consonant state. Keep its own token/time/count state so that
+     * repeated presses of CJI_ENG_ABC become a -> b -> c just like
+     * consonant replacement.
+     */
+    repeat = multitap_is_within_term(token);
+
+    if (repeat) {
+        mt_state.repeat_count = (mt_state.repeat_count + 1) % map->len;
 
         err = tap_backspace();
         if (err < 0) {
             return err;
         }
     } else {
-        state.repeat_count = 0;
+        mt_state.repeat_count = 0;
     }
 
-    err = emit_multitap_key(&map->keys[state.repeat_count]);
+    err = emit_multitap_key(&map->keys[mt_state.repeat_count]);
     if (err < 0) {
         return err;
     }
 
+    stamp_multitap_time(token);
+
     state.last_token = token;
     state.last_kind = CJI_KIND_MULTITAP;
+    state.repeat_count = mt_state.repeat_count;
     state.pending_dot = false;
     state.vowel_len = 0;
     state.emitted_vowel = false;
