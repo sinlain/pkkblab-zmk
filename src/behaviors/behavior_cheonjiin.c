@@ -5,8 +5,8 @@
  * - Immediate input on first tap.
  * - If the same consonant key is tapped again within CJI_REPEAT_TERM_MS:
  *   Backspace previous character, then replace with next candidate.
- * - HID output is queued to a work item so the behavior callback does not sleep
- *   or send multi-step HID reports directly inside the key press handler.
+ * - Vowels are handled as a sequence so extended vowels can continue from
+ *   already-emitted basic vowels.
  *
  * Host OS must be in Korean 2-beolsik input mode.
  */
@@ -87,14 +87,9 @@ static size_t action_tail;
 static size_t action_count;
 
 K_MUTEX_DEFINE(action_mutex);
-K_SEM_DEFINE(action_sem, 0, CJI_ACTION_QUEUE_SIZE);
 
-#define CJI_THREAD_STACK_SIZE 1536
-#define CJI_THREAD_PRIORITY 5
-
-K_THREAD_STACK_DEFINE(cji_thread_stack, CJI_THREAD_STACK_SIZE);
-static struct k_thread cji_thread_data;
-static bool cji_thread_started;
+static void cji_work_handler(struct k_work *work);
+K_WORK_DEFINE(cji_work, cji_work_handler);
 
 static int send_report(void) {
     return zmk_endpoints_send_report(HID_USAGE_KEY);
@@ -185,7 +180,7 @@ static int enqueue_action(enum cji_action_type type, uint32_t keycode) {
     action_count++;
 
     k_mutex_unlock(&action_mutex);
-    k_sem_give(&action_sem);
+    k_work_submit(&cji_work);
 
     return 0;
 }
@@ -208,26 +203,20 @@ static bool dequeue_action(struct cji_action *action) {
     return true;
 }
 
-static void cji_output_thread(void *p1, void *p2, void *p3) {
-    ARG_UNUSED(p1);
-    ARG_UNUSED(p2);
-    ARG_UNUSED(p3);
+static void cji_work_handler(struct k_work *work) {
+    ARG_UNUSED(work);
 
     struct cji_action action;
 
-    while (true) {
-        k_sem_take(&action_sem, K_FOREVER);
+    while (dequeue_action(&action)) {
+        switch (action.type) {
+        case CJI_ACTION_TAP:
+            tap_key_now(action.keycode);
+            break;
 
-        while (dequeue_action(&action)) {
-            switch (action.type) {
-            case CJI_ACTION_TAP:
-                tap_key_now(action.keycode);
-                break;
-
-            case CJI_ACTION_SHIFT_TAP:
-                tap_shifted_key_now(action.keycode);
-                break;
-            }
+        case CJI_ACTION_SHIFT_TAP:
+            tap_shifted_key_now(action.keycode);
+            break;
         }
     }
 }
@@ -414,59 +403,66 @@ struct cji_vowel_map {
 };
 
 /*
- * Cheonjiin vowel sequences used by this firmware:
+ * Token names:
+ * - CJI_I   = ㅣ key
+ * - CJI_DOT = ㆍ key
+ * - CJI_EU  = ㅡ key
  *
- * Basic:
+ * Vowel sequence table:
  * ㅏ = ㅣ + ㆍ
  * ㅓ = ㆍ + ㅣ
- * ㅗ = ㅡ + ㆍ
- * ㅜ = ㆍ + ㅡ
- * ㅡ = ㅡ
- * ㅣ = ㅣ
- *
- * Extended:
+ * ㅗ = ㆍ + ㅡ
+ * ㅜ = ㅡ + ㆍ
  * ㅑ = ㅣ + ㆍ + ㆍ
  * ㅕ = ㆍ + ㆍ + ㅣ
- * ㅛ = ㅡ + ㆍ + ㆍ
- * ㅠ = ㆍ + ㆍ + ㅡ
+ * ㅛ = ㆍ + ㆍ + ㅡ
+ * ㅠ = ㅡ + ㆍ + ㆍ
  * ㅐ = ㅣ + ㆍ + ㅣ
  * ㅒ = ㅣ + ㆍ + ㆍ + ㅣ
  * ㅔ = ㆍ + ㅣ + ㅣ
  * ㅖ = ㆍ + ㆍ + ㅣ + ㅣ
- * ㅘ = ㅡ + ㆍ + ㅣ + ㆍ
- * ㅙ = ㅡ + ㆍ + ㅣ + ㆍ + ㅣ
- * ㅚ = ㅡ + ㆍ + ㅣ
- * ㅝ = ㆍ + ㅡ + ㆍ + ㅣ
- * ㅞ = ㆍ + ㅡ + ㆍ + ㅣ + ㅣ
- * ㅟ = ㆍ + ㅡ + ㅣ
+ * ㅘ = ㆍ + ㅡ + ㅣ + ㆍ
+ * ㅙ = ㆍ + ㅡ + ㅣ + ㆍ + ㅣ
+ * ㅚ = ㆍ + ㅡ + ㅣ
+ * ㅝ = ㅡ + ㆍ + ㆍ + ㅣ
+ * ㅞ = ㅡ + ㆍ + ㆍ + ㅣ + ㅣ
+ * ㅟ = ㅡ + ㆍ + ㅣ
  * ㅢ = ㅡ + ㅣ
  */
 static const struct cji_vowel_map vowel_maps[] = {
+    /* Single visible vowels */
     { .seq = {CJI_I},                                  .seq_len = 1, .out = {{L, false}},                 .out_len = 1 }, /* ㅣ */
     { .seq = {CJI_EU},                                 .seq_len = 1, .out = {{M, false}},                 .out_len = 1 }, /* ㅡ */
+
+    /* Basic vowels */
     { .seq = {CJI_I, CJI_DOT},                         .seq_len = 2, .out = {{K, false}},                 .out_len = 1 }, /* ㅏ */
     { .seq = {CJI_DOT, CJI_I},                         .seq_len = 2, .out = {{J, false}},                 .out_len = 1 }, /* ㅓ */
-    { .seq = {CJI_EU, CJI_DOT},                        .seq_len = 2, .out = {{H, false}},                 .out_len = 1 }, /* ㅗ */
-    { .seq = {CJI_DOT, CJI_EU},                        .seq_len = 2, .out = {{N, false}},                 .out_len = 1 }, /* ㅜ */
+    { .seq = {CJI_DOT, CJI_EU},                        .seq_len = 2, .out = {{H, false}},                 .out_len = 1 }, /* ㅗ */
+    { .seq = {CJI_EU, CJI_DOT},                        .seq_len = 2, .out = {{N, false}},                 .out_len = 1 }, /* ㅜ */
 
+    /* Iotized vowels */
     { .seq = {CJI_I, CJI_DOT, CJI_DOT},                .seq_len = 3, .out = {{I, false}},                 .out_len = 1 }, /* ㅑ */
     { .seq = {CJI_DOT, CJI_DOT, CJI_I},                .seq_len = 3, .out = {{U, false}},                 .out_len = 1 }, /* ㅕ */
-    { .seq = {CJI_EU, CJI_DOT, CJI_DOT},               .seq_len = 3, .out = {{Y, false}},                 .out_len = 1 }, /* ㅛ */
-    { .seq = {CJI_DOT, CJI_DOT, CJI_EU},               .seq_len = 3, .out = {{B, false}},                 .out_len = 1 }, /* ㅠ */
+    { .seq = {CJI_DOT, CJI_DOT, CJI_EU},               .seq_len = 3, .out = {{Y, false}},                 .out_len = 1 }, /* ㅛ */
+    { .seq = {CJI_EU, CJI_DOT, CJI_DOT},               .seq_len = 3, .out = {{B, false}},                 .out_len = 1 }, /* ㅠ */
 
+    /* ㅐ / ㅔ family */
     { .seq = {CJI_I, CJI_DOT, CJI_I},                  .seq_len = 3, .out = {{O, false}},                 .out_len = 1 }, /* ㅐ */
     { .seq = {CJI_I, CJI_DOT, CJI_DOT, CJI_I},         .seq_len = 4, .out = {{O, true}},                  .out_len = 1 }, /* ㅒ */
     { .seq = {CJI_DOT, CJI_I, CJI_I},                  .seq_len = 3, .out = {{P, false}},                 .out_len = 1 }, /* ㅔ */
     { .seq = {CJI_DOT, CJI_DOT, CJI_I, CJI_I},         .seq_len = 4, .out = {{P, true}},                  .out_len = 1 }, /* ㅖ */
 
-    { .seq = {CJI_EU, CJI_DOT, CJI_I, CJI_DOT},        .seq_len = 4, .out = {{H, false}, {K, false}},     .out_len = 2 }, /* ㅘ */
-    { .seq = {CJI_EU, CJI_DOT, CJI_I, CJI_DOT, CJI_I}, .seq_len = 5, .out = {{H, false}, {O, false}},     .out_len = 2 }, /* ㅙ */
-    { .seq = {CJI_EU, CJI_DOT, CJI_I},                 .seq_len = 3, .out = {{H, false}, {L, false}},     .out_len = 2 }, /* ㅚ */
+    /* ㅗ compound family */
+    { .seq = {CJI_DOT, CJI_EU, CJI_I},                 .seq_len = 3, .out = {{H, false}, {L, false}},     .out_len = 2 }, /* ㅚ */
+    { .seq = {CJI_DOT, CJI_EU, CJI_I, CJI_DOT},        .seq_len = 4, .out = {{H, false}, {K, false}},     .out_len = 2 }, /* ㅘ */
+    { .seq = {CJI_DOT, CJI_EU, CJI_I, CJI_DOT, CJI_I}, .seq_len = 5, .out = {{H, false}, {O, false}},     .out_len = 2 }, /* ㅙ */
 
-    { .seq = {CJI_DOT, CJI_EU, CJI_DOT, CJI_I},        .seq_len = 4, .out = {{N, false}, {J, false}},     .out_len = 2 }, /* ㅝ */
-    { .seq = {CJI_DOT, CJI_EU, CJI_DOT, CJI_I, CJI_I}, .seq_len = 5, .out = {{N, false}, {P, false}},     .out_len = 2 }, /* ㅞ */
-    { .seq = {CJI_DOT, CJI_EU, CJI_I},                 .seq_len = 3, .out = {{N, false}, {L, false}},     .out_len = 2 }, /* ㅟ */
+    /* ㅜ compound family */
+    { .seq = {CJI_EU, CJI_DOT, CJI_I},                 .seq_len = 3, .out = {{N, false}, {L, false}},     .out_len = 2 }, /* ㅟ */
+    { .seq = {CJI_EU, CJI_DOT, CJI_DOT, CJI_I},        .seq_len = 4, .out = {{N, false}, {J, false}},     .out_len = 2 }, /* ㅝ */
+    { .seq = {CJI_EU, CJI_DOT, CJI_DOT, CJI_I, CJI_I}, .seq_len = 5, .out = {{N, false}, {P, false}},     .out_len = 2 }, /* ㅞ */
 
+    /* ㅡ compound family */
     { .seq = {CJI_EU, CJI_I},                          .seq_len = 2, .out = {{M, false}, {L, false}},     .out_len = 2 }, /* ㅢ */
 };
 
@@ -719,15 +715,6 @@ static const struct behavior_driver_api behavior_cheonjiin_driver_api = {
 
 static int behavior_cheonjiin_init(const struct device *dev) {
     ARG_UNUSED(dev);
-
-    if (!cji_thread_started) {
-        k_thread_create(&cji_thread_data, cji_thread_stack,
-                        K_THREAD_STACK_SIZEOF(cji_thread_stack),
-                        cji_output_thread, NULL, NULL, NULL,
-                        K_PRIO_PREEMPT(CJI_THREAD_PRIORITY), 0, K_NO_WAIT);
-        cji_thread_started = true;
-    }
-
     return 0;
 }
 
