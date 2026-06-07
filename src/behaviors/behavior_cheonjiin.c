@@ -26,6 +26,49 @@
 #include <dt-bindings/zmk/hid_usage_pages.h>
 #include <dt-bindings/zmk/keys.h>
 
+
+/*
+ * Fallback token definitions.
+ * These keep behavior_cheonjiin.c buildable even when an older cheonjiin.h is
+ * accidentally left in place. The keymap still needs the updated header below.
+ */
+#ifndef CJI_ENG_ABC
+#define CJI_ENG_ABC   50
+#endif
+#ifndef CJI_ENG_DEF
+#define CJI_ENG_DEF   51
+#endif
+#ifndef CJI_ENG_GHI
+#define CJI_ENG_GHI   52
+#endif
+#ifndef CJI_ENG_JKL
+#define CJI_ENG_JKL   53
+#endif
+#ifndef CJI_ENG_MNO
+#define CJI_ENG_MNO   54
+#endif
+#ifndef CJI_ENG_PQRS
+#define CJI_ENG_PQRS  55
+#endif
+#ifndef CJI_ENG_TUV
+#define CJI_ENG_TUV   56
+#endif
+#ifndef CJI_ENG_WXYZ
+#define CJI_ENG_WXYZ  57
+#endif
+#ifndef CJI_SYM_1
+#define CJI_SYM_1     70
+#endif
+#ifndef CJI_SYM_2
+#define CJI_SYM_2     71
+#endif
+#ifndef CJI_SYM_3
+#define CJI_SYM_3     72
+#endif
+#ifndef CJI_NUM_OPS
+#define CJI_NUM_OPS   73
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
@@ -703,7 +746,7 @@ static const struct cji_multitap_key mt_eng_wxyz[] = {
 
 static const struct cji_multitap_key mt_sym_1[] = {
     {MINUS, true},       /* _ */
-    {N6, true},          /* ^ */
+    {N2, true},          /* @ */
     {N3, true},          /* # */
     {N4, true},          /* $ */
     {SLASH, false},      /* / */
