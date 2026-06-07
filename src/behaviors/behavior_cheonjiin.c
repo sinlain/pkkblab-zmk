@@ -45,6 +45,7 @@ enum cji_kind {
     CJI_KIND_CONSONANT,
     CJI_KIND_VOWEL,
     CJI_KIND_DOT,
+    CJI_KIND_MULTITAP,
 };
 
 struct cji_state {
@@ -656,6 +657,150 @@ static int handle_vowel_eu(void) {
     return handle_vowel_token(CJI_EU);
 }
 
+
+struct cji_multitap_key {
+    uint32_t keycode;
+    bool shifted;
+};
+
+struct cji_multitap_map {
+    uint32_t token;
+    const struct cji_multitap_key *keys;
+    uint8_t len;
+};
+
+static const struct cji_multitap_key mt_eng_abc[] = {
+    {A, false}, {B, false}, {C, false},
+};
+
+static const struct cji_multitap_key mt_eng_def[] = {
+    {D, false}, {E, false}, {F, false},
+};
+
+static const struct cji_multitap_key mt_eng_ghi[] = {
+    {G, false}, {H, false}, {I, false},
+};
+
+static const struct cji_multitap_key mt_eng_jkl[] = {
+    {J, false}, {K, false}, {L, false},
+};
+
+static const struct cji_multitap_key mt_eng_mno[] = {
+    {M, false}, {N, false}, {O, false},
+};
+
+static const struct cji_multitap_key mt_eng_pqrs[] = {
+    {P, false}, {Q, false}, {R, false}, {S, false},
+};
+
+static const struct cji_multitap_key mt_eng_tuv[] = {
+    {T, false}, {U, false}, {V, false},
+};
+
+static const struct cji_multitap_key mt_eng_wxyz[] = {
+    {W, false}, {X, false}, {Y, false}, {Z, false},
+};
+
+static const struct cji_multitap_key mt_sym_1[] = {
+    {MINUS, true},       /* _ */
+    {N6, true},          /* ^ */
+    {N3, true},          /* # */
+    {N4, true},          /* $ */
+    {SLASH, false},      /* / */
+};
+
+static const struct cji_multitap_key mt_sym_2[] = {
+    {N8, true},          /* * */
+    {APOS, true},  /* " */
+    {APOS, false}, /* ' */
+    {N9, true},          /* ( */
+    {N0, true},          /* ) */
+};
+
+static const struct cji_multitap_key mt_sym_3[] = {
+    {COMMA, false},      /* , */
+    {SLASH, true},       /* ? */
+    {N1, true},          /* ! */
+};
+
+static const struct cji_multitap_key mt_num_ops[] = {
+    {EQUAL, true},       /* + */
+    {MINUS, false},      /* - */
+    {N8, true},          /* * */
+    {N5, true},          /* % */
+};
+
+static const struct cji_multitap_map multitap_maps[] = {
+    {CJI_ENG_ABC,  mt_eng_abc,  ARRAY_SIZE(mt_eng_abc)},
+    {CJI_ENG_DEF,  mt_eng_def,  ARRAY_SIZE(mt_eng_def)},
+    {CJI_ENG_GHI,  mt_eng_ghi,  ARRAY_SIZE(mt_eng_ghi)},
+    {CJI_ENG_JKL,  mt_eng_jkl,  ARRAY_SIZE(mt_eng_jkl)},
+    {CJI_ENG_MNO,  mt_eng_mno,  ARRAY_SIZE(mt_eng_mno)},
+    {CJI_ENG_PQRS, mt_eng_pqrs, ARRAY_SIZE(mt_eng_pqrs)},
+    {CJI_ENG_TUV,  mt_eng_tuv,  ARRAY_SIZE(mt_eng_tuv)},
+    {CJI_ENG_WXYZ, mt_eng_wxyz, ARRAY_SIZE(mt_eng_wxyz)},
+
+    {CJI_SYM_1,    mt_sym_1,    ARRAY_SIZE(mt_sym_1)},
+    {CJI_SYM_2,    mt_sym_2,    ARRAY_SIZE(mt_sym_2)},
+    {CJI_SYM_3,    mt_sym_3,    ARRAY_SIZE(mt_sym_3)},
+    {CJI_NUM_OPS,  mt_num_ops,  ARRAY_SIZE(mt_num_ops)},
+};
+
+static const struct cji_multitap_map *find_multitap_map(uint32_t token) {
+    for (uint8_t i = 0; i < ARRAY_SIZE(multitap_maps); i++) {
+        if (multitap_maps[i].token == token) {
+            return &multitap_maps[i];
+        }
+    }
+
+    return NULL;
+}
+
+static int emit_multitap_key(const struct cji_multitap_key *key) {
+    if (key->shifted) {
+        return tap_shifted_key(key->keycode);
+    }
+
+    return tap_key(key->keycode);
+}
+
+static int handle_multitap(uint32_t token) {
+    const struct cji_multitap_map *map = find_multitap_map(token);
+    int err;
+
+    if (map == NULL || map->len == 0) {
+        return -ENOTSUP;
+    }
+
+    if (state.last_token == token &&
+        state.last_kind == CJI_KIND_MULTITAP &&
+        is_within_term()) {
+        state.repeat_count = (state.repeat_count + 1) % map->len;
+
+        err = tap_backspace();
+        if (err < 0) {
+            return err;
+        }
+    } else {
+        state.repeat_count = 0;
+    }
+
+    err = emit_multitap_key(&map->keys[state.repeat_count]);
+    if (err < 0) {
+        return err;
+    }
+
+    state.last_token = token;
+    state.last_kind = CJI_KIND_MULTITAP;
+    state.pending_dot = false;
+    state.vowel_len = 0;
+    state.emitted_vowel = false;
+    state.emitted_vowel_out_len = 0;
+    stamp_tap_time();
+
+    return 0;
+}
+
 static int handle_token(uint32_t token) {
     switch (token) {
     case CJI_I:
@@ -686,6 +831,10 @@ static int handle_token(uint32_t token) {
     default:
         if (is_consonant_token(token)) {
             return handle_consonant(token);
+        }
+
+        if (find_multitap_map(token) != NULL) {
+            return handle_multitap(token);
         }
 
         return -ENOTSUP;
